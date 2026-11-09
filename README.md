@@ -1,38 +1,109 @@
-# DevFest Hackathon 2026 提出用リポジトリ
+# AI Closet
 
-  DevFest Hackathon 2026 のチームの **最終提出用** リポジトリです。提出期限までに、作品のコードと資料をこのリポジトリに置いてください。
+> 画像解析で「持っている服」を資産に変える、次世代スタイリング・ログ
 
-  このリポジトリは **公開（public）** です。開催中も、運営・審査員・ほかの参加者が見られます。
+AI Closet は、手持ちの服をデジタルなクローゼットとして管理し、日々の着用を記録・振り返る Web アプリです。服や着用写真を AI が解析し、登録済みのアイテムから候補を提示します。着用傾向の可視化、天気に合わせたコーデ提案、クローゼットについて相談できるチャット、バーチャル試着も提供します。
 
-  ## はじめに
+## デプロイ先
 
-  1. GitHub から届いた招待を受け入れてください（招待の期限は 7 日です）
-  2. このリポジトリを clone して、提出物を置いてください
+https://devfest-513813.web.app/
 
-  招待の期限が切れたときや、メンバーが変わったときは、運営に連絡してください。
+## 主な機能
 
-  ## 開発用のリポジトリは別に作ることをおすすめします
+- Firebase Authentication によるメールアドレス認証
+- 服の写真・属性を登録するマイクローゼット
+- 自撮りから着用アイテムを解析し、クローゼット内の候補を提示する着用記録
+- カレンダーでの着用履歴の確認と、色・カテゴリ別の利用傾向の集計
+- 居住地の天気を考慮した、手持ち服からのコーディネート提案
+- クローゼットと直近の着用履歴を文脈にした AI チャット
+- 人物写真と服画像を用いたバーチャル試着イメージの生成
+- プロフィール（表示名・年齢・居住地）の管理
 
-  このリポジトリでは **GitHub Actions と GitHub Pages が使えません**。CI やデプロイ、Pages での公開をしたいときは、チームで開発用のリポジトリを別に作ってください。
+## アーキテクチャ
 
-  - 開発用のリポジトリは、チームのメンバーのアカウントや、チームで作った Organization に作ってください
-  - 開発はそちらで進めて、提出期限までに最終版のコードと資料をこのリポジトリに push してください
-  - 審査はこのリポジトリの内容で行います。開発用のリポジトリにしかないものは、審査の対象になりません
-  - デプロイした作品の URL があれば、この README に書いてください
+![AI Closet architecture](docs/architecture-diagram.png)
 
-  ## 秘密情報をコミットしない
+1. ブラウザの Next.js PWA が Firebase Authentication でログインし、ID トークンを取得します。
+2. フロントエンドはトークンを付与して Cloud Run 上の Hono API を呼び出します。
+3. API は Firebase ID トークンを検証し、ユーザー本人のデータだけを Cloud SQL for PostgreSQL から読み書きします。
+4. 服・自撮り・プロフィール画像は Cloud Storage に保存します。アップロードおよび表示には API が発行する期限付き URL を使います。
+5. Vertex AI Gemini が画像解析、コーディネート提案、チャット、バーチャル試着を支援します。
+6. Cloud Run の接続情報などの機密値は Secret Manager で管理します。
 
-  API キー・パスワード・サービスアカウントの鍵などは、**絶対にコミットしないでください**。公開リポジトリなので、push
-  した時点で誰でも見られます。開発用のリポジトリから持ってくるときも、履歴ごと push すると、過去のコミットに含まれる秘密情報も公開されます。
+## 技術スタック
 
-  - 秘密情報は `.env` や `.dev.vars` などに書き、コミットしない（`.gitignore` に入れてあります）
-  - 誤って push したら、すぐにキー（鍵）を無効にして作り直し、運営に連絡してください。履歴から消すだけでは不十分です
-  - GitHub の push protection が、よく知られた形式のキーの push を止めることがあります。止められたら、そのキーをコミットから外してください
+| 領域 | 技術 |
+| --- | --- |
+| フロントエンド | Next.js 15 / React 19 / TypeScript |
+| フロントエンド公開 | Firebase Hosting |
+| 認証 | Firebase Authentication |
+| API | Cloud Run / Hono / TypeScript |
+| データベース | Cloud SQL for PostgreSQL |
+| 画像ストレージ | Cloud Storage |
+| AI | Vertex AI Gemini (`@google/genai`) |
+| 入力検証・共有型 | Zod / `packages/shared` |
 
-  ## 提出
+## リポジトリ構成
 
-  提出の方法と締切は、運営からの案内に従ってください。提出期限を過ぎると、このリポジトリは読み取り専用になり、push できなくなります。
+```text
+apps/
+  web/                 Next.js フロントエンド
+  api/                 Cloud Run 向け Hono API
+packages/
+  shared/              フロントエンド・API間の共有スキーマ
+infra/
+  database/            Cloud SQL の初期スキーマ
+  storage/             Cloud Storage の CORS 設定
+  cloudbuild.api.yaml  API コンテナのビルド定義
+docs/                  要件・設計資料・アーキテクチャ図
+```
 
-  ## ライセンス
+## ローカル開発
 
-  [MIT License](LICENSE) です。ほかのライセンスにしたいときは、LICENSE を書き換えてください。
+Node.js 22 以降を用意し、依存関係をインストールします。
+
+```bash
+npm install
+```
+
+環境変数の雛形をコピーして、それぞれの値を設定します。認証情報や API キーはリポジトリにコミットしないでください。
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+cp apps/api/.env.example apps/api/.env
+```
+
+別々のターミナルでフロントエンドと API を起動します。
+
+```bash
+npm run dev:web
+npm run dev:api
+```
+
+型チェックとビルドは次で実行できます。
+
+```bash
+npm run typecheck
+npm run build
+```
+
+## デプロイ
+
+フロントエンドは静的エクスポートを Firebase Hosting に公開します。
+
+```bash
+npm run deploy:web
+```
+
+API は `apps/api/Dockerfile` と `infra/cloudbuild.api.yaml` を使ってコンテナ化し、Cloud Run へデプロイします。Cloud SQL、Cloud Storage、Vertex AI、Secret Manager の設定手順は [docs/GCP_SETUP.md](docs/GCP_SETUP.md) を参照してください。
+
+## セキュリティとプライバシー
+
+- API は Firebase ID トークンを検証し、ユーザー ID をサーバー側で確定します。
+- 画像オブジェクトのパスはユーザーごとに分離し、API で所有権を検証します。
+- 画像のアップロード・閲覧は短時間で失効する署名 URL を利用します。
+- DB 接続情報、API キーなどの機密値は環境変数または Secret Manager で管理し、コミットしません。
+
+## ライセンス
+
+[MIT License](LICENSE)
